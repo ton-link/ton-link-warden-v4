@@ -1,5 +1,5 @@
 import { Error } from "./error"
-import { InfoLog } from "./info"
+import { InfoLog, AlarmLog } from "./info"
 import { Delay, GetActualTime, PreviousCall } from "../constant/helpers";
 import { CalculateCallPeriod } from "../math"
 import TonWeb from "tonweb";
@@ -46,6 +46,7 @@ export async function CmdStart(mnemonic: string, network: string, oracle: string
         let previousCallPeriod = 0;
         let previousCall = <PreviousCall>{};
         let lastBlock: number = 0;
+        let alarm: boolean = false;
 
         try {
                 let client = await InitClient(network)
@@ -56,12 +57,20 @@ export async function CmdStart(mnemonic: string, network: string, oracle: string
                 InfoLog(`using net=${network}`)
 
                 while(1){
-                        let [need_vote, diff] = await CalculateCallPeriod(previousCallPeriod, client)
+                        let [need_vote, diff] = await CalculateCallPeriod(oracle, client)
                         if (!need_vote && Object.keys(previousCall).length !== 0) {
-                                previousCall = <PreviousCall>{}
+                                previousCall = <PreviousCall>{};
+                                alarm = false;
                         }
-                        if(need_vote && diff > 95) {
-                                previousCall = <PreviousCall>{}
+                        if(need_vote && diff > 95 && !alarm) {
+                                InfoLog(`broadcasting alarm warden=${address}`)
+                                previousCall = <PreviousCall>{};
+                                alarm = true;
+                        }
+                        if(need_vote && diff > 150) {
+                                AlarmLog(`broadcasting alarm warden=${address}`)
+                                previousCall = <PreviousCall>{};
+                                alarm = true;
                         }
                         InfoLog(`got new chain height: need_call=${need_vote}: diff=${diff}`)
 
